@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal README Generator</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+
+    <div class="container">
+        <header>
+            <h1>Universal <span>README</span> Generator</h1>
+            <p>Scan Local Folders or GitHub Repositories. Generate Documentation instantly.</p>
+        </header>
+
+        <main>
+            <div class="glass-panel input-area">
+                <div class="input-group">
+                    <label>Project Source (Local Path or GitHub URL)</label>
+                    <input type="text" id="pathInput" placeholder="e.g., C:/Projects/MyApp or https://github.com/user/repo">
+                </div>
+                <div class="input-group shrink">
+                    <label>Template</label>
+                    <select id="templateInput">
+                        <option value="Detailed">Detailed</option>
+                        <option value="Minimal">Minimal</option>
+                    </select>
+                </div>
+                <button onclick="generate()" id="genBtn">✨ Generate</button>
+            </div>
+
+            <div class="glass-panel output-area">
+                <div class="toolbar">
+                    <span id="status">Ready</span>
+                    <div class="btn-group">
+                        <button onclick="copyMd()">📋 Copy</button>
+                        <button onclick="downloadMd()">⬇️ Download</button>
+                        <button onclick="saveMd()">💾 Save to Folder</button>
+                    </div>
+                </div>
+                <div id="preview" class="markdown-body"></div>
+            </div>
+        </main>
+    </div>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
