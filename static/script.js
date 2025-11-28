@@ -1,44 +1,66 @@
-let currentMd = "";
+let currentTemplate = 'Detailed';
+let currentMd = '';
+
+function setTemplate(mode, btn) {
+    currentTemplate = mode;
+    document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+}
+
+function log(msg) {
+    const term = document.getElementById('terminalLog');
+    term.innerHTML += `> ${msg}<br>`;
+    term.scrollTop = term.scrollHeight;
+}
 
 async function generate() {
     const path = document.getElementById('pathInput').value;
-    const template = document.getElementById('templateInput').value;
+    // GET THE CUSTOM TEXT
+    const context = document.getElementById('customContext').value; 
     const btn = document.getElementById('genBtn');
-    const status = document.getElementById('status');
     
-    if(!path) return alert("Please enter a path or URL");
-    
+    if(!path) return alert("Please enter a path.");
+
     btn.disabled = true;
-    btn.innerText = "⏳ Scanning...";
-    status.innerText = "Scanning project structure...";
-    
+    btn.innerHTML = `<span class="loader"></span> Scanning...`;
+    document.getElementById('terminalLog').innerHTML = '';
+    log(`Target: ${path}`);
+    log("Analyzing architecture & dependencies...");
+
     try {
         const res = await fetch('/generate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({path, template})
+            body: JSON.stringify({ 
+                path: path, 
+                template: currentTemplate,
+                context: context // SEND IT TO SERVER
+            })
         });
+        
         const data = await res.json();
         
-        if(data.success) {
+        if (data.success) {
+            log("Generating diagrams...");
+            log("<span style='color:#4ade80'>Success!</span>");
+            
             currentMd = data.markdown;
             document.getElementById('preview').innerHTML = marked.parse(data.markdown);
             mermaid.init(undefined, document.querySelectorAll('.mermaid'));
-            status.innerText = "✅ Generated Successfully";
         } else {
-            status.innerText = "❌ Error: " + data.error;
+            log(`<span style='color:#f87171'>Error: ${data.error}</span>`);
         }
-    } catch(e) {
-        status.innerText = "❌ Network Error";
+    } catch (e) {
+        log(`<span style='color:#f87171'>Network Error: ${e}</span>`);
     } finally {
         btn.disabled = false;
-        btn.innerText = "✨ Generate";
+        btn.innerHTML = `<span>🚀</span> Generate Docs`;
     }
 }
 
 async function saveMd() {
     const path = document.getElementById('pathInput').value;
-    if(!currentMd) return alert("Generate first!");
+    if(!currentMd) return alert("Nothing to save.");
     
     const res = await fetch('/save', {
         method: 'POST',
@@ -46,14 +68,14 @@ async function saveMd() {
         body: JSON.stringify({path, content: currentMd})
     });
     const data = await res.json();
-    if(data.success) alert("Saved README.md to folder!");
-    else alert("Save failed: " + data.error);
+    if(data.success) alert("Saved successfully!");
+    else alert("Error: " + data.error);
 }
 
 function copyMd() {
     if(currentMd) {
         navigator.clipboard.writeText(currentMd);
-        alert("Copied to clipboard!");
+        log("Copied to clipboard.");
     }
 }
 

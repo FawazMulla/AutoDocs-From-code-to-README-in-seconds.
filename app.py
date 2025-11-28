@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import os
-from core import ProjectScanner
+from core import generate_readme
 
 app = Flask(__name__)
 
@@ -13,20 +13,18 @@ def generate():
     data = request.json
     path = data.get('path', '').strip()
     template = data.get('template', 'Detailed')
+    # Capture the Custom Context from Frontend
+    context = data.get('context', '').strip() 
     
     if not path:
-        return jsonify({"error": "Path is required"}), 400
+        return jsonify({"success": False, "error": "Path is required"}), 400
 
-    scanner = ProjectScanner(path)
     try:
-        scanner.setup_path()
-        scanner.scan()
-        content = scanner.build_markdown(template)
+        # Pass context to the core function
+        content = generate_readme(path, template, context)
         return jsonify({"success": True, "markdown": content})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
-    finally:
-        scanner.cleanup()
 
 @app.route('/save', methods=['POST'])
 def save_file():
@@ -34,13 +32,12 @@ def save_file():
     path = data.get('path', '').strip()
     content = data.get('content')
     
-    # Security: Only allow saving to local paths, not URLs
     if path.startswith('http') or path.endswith('.git'):
-        return jsonify({"success": False, "error": "Cannot save directly to remote URL. Use Download button."})
+        return jsonify({"success": False, "error": "Remote repos cannot be saved locally. Use Download."})
         
     try:
         if not os.path.exists(path):
-            return jsonify({"success": False, "error": "Directory does not exist."})
+            return jsonify({"success": False, "error": "Directory not found"})
             
         with open(os.path.join(path, 'README.md'), 'w', encoding='utf-8') as f:
             f.write(content)
@@ -49,5 +46,4 @@ def save_file():
         return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
-    # Allow running on 0.0.0.0 for Docker compatibility
     app.run(host='0.0.0.0', port=5000, debug=True)

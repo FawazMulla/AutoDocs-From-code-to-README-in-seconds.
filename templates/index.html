@@ -3,47 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal README Generator</title>
+    <title>Pro README Generator</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
-    <div class="orb orb-1"></div>
-    <div class="orb orb-2"></div>
-
-    <div class="container">
-        <header>
-            <h1>Universal <span>README</span> Generator</h1>
-            <p>Scan Local Folders or GitHub Repositories. Generate Documentation instantly.</p>
-        </header>
-
-        <main>
-            <div class="glass-panel input-area">
-                <div class="input-group">
-                    <label>Project Source (Local Path or GitHub URL)</label>
-                    <input type="text" id="pathInput" placeholder="e.g., C:/Projects/MyApp or https://github.com/user/repo">
-                </div>
-                <div class="input-group shrink">
-                    <label>Template</label>
-                    <select id="templateInput">
-                        <option value="Detailed">Detailed</option>
-                        <option value="Minimal">Minimal</option>
-                    </select>
-                </div>
-                <button onclick="generate()" id="genBtn">✨ Generate</button>
+    <div class="app-layout">
+        <aside class="sidebar glass">
+            <div class="brand">
+                <div class="logo">⚡</div>
+                <h1>Readme<span class="accent">Gen</span></h1>
             </div>
 
-            <div class="glass-panel output-area">
-                <div class="toolbar">
-                    <span id="status">Ready</span>
-                    <div class="btn-group">
-                        <button onclick="copyMd()">📋 Copy</button>
-                        <button onclick="downloadMd()">⬇️ Download</button>
-                        <button onclick="saveMd()">💾 Save to Folder</button>
+            <div class="control-group">
+                <label>Project Source</label>
+                <input type="text" id="pathInput" placeholder="Path or GitHub URL...">
+            </div>
+
+            <div class="control-group">
+                <label>Mode</label>
+                <div class="toggle-container">
+                    <button class="toggle-btn active" onclick="setTemplate('Detailed', this)">Detailed</button>
+                    <button class="toggle-btn" onclick="setTemplate('Minimal', this)">Minimal</button>
+                </div>
+            </div>
+
+            <div class="control-group notes-section">
+                <label>
+                    <span>Developer Notes</span>
+                    <span class="badge">Optional</span>
+                </label>
+                <textarea id="customContext" placeholder="e.g. 'Requires API Key', 'Database runs on port 5432'"></textarea>
+            </div>
+
+            <div class="spacer"></div>
+
+            <div class="terminal glass-inset">
+                <div class="terminal-header">System Log</div>
+                <div id="terminalLog" class="terminal-body">> Ready.</div>
+            </div>
+
+            <button id="genBtn" onclick="generate()" class="primary-btn">
+                <span>🚀</span> Generate Docs
+            </button>
+        </aside>
+
+        <main class="preview-area">
+            <div class="preview-header glass">
+                <h2>Preview</h2>
+                <div class="actions">
+                    <button onclick="copyMd()" class="secondary-btn">Copy</button>
+                    <button onclick="downloadMd()" class="secondary-btn">Download</button>
+                    <button onclick="saveMd()" class="secondary-btn">Save to Disk</button>
+                </div>
+            </div>
+            
+            <div class="preview-content glass" id="previewContainer">
+                <div id="preview" class="markdown-body">
+                    <div class="placeholder-state">
+                        <div style="font-size: 4rem; margin-bottom: 1rem;">📄</div>
+                        <h3>No Documentation Yet</h3>
+                        <p>Enter a project path to analyze.</p>
                     </div>
                 </div>
-                <div id="preview" class="markdown-body"></div>
             </div>
         </main>
     </div>
