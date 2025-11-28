@@ -44,7 +44,7 @@ class DeepScanner:
             "license": "Unlicensed",
             "modules": [],            # Classes/Modules for architecture
             "env_vars": set(),
-            "tests": [],
+            "tests": [],              # Stores detected test frameworks
             "build_tools": set()      # Maven, Gradle, Poetry, etc.
         }
 
@@ -179,14 +179,19 @@ class DeepScanner:
                 data = json.load(f)
                 if data.get('name'): self.metadata["project_name"] = data.get('name')
                 
-                # Entry point from package.json
                 if data.get('main'): 
                     self.metadata["entry_point"] = data.get('main')
                     
                 deps = list(data.get('dependencies', {}).keys())
+                devDeps = list(data.get('devDependencies', {}).keys())
+                
                 self.metadata["dependencies"]["Node.js"].update(deps)
                 self.metadata["scripts"] = data.get('scripts', {})
                 if data.get('description'): self.metadata["description"] = data.get('description')
+                
+                # Detect Testing Frameworks
+                for d in deps + devDeps:
+                    if d in ['jest', 'mocha', 'chai', 'supertest']: self.metadata["tests"].append(d)
         except: pass
 
     def _parse_requirements(self, filepath):
@@ -194,6 +199,8 @@ class DeepScanner:
             with open(filepath) as f:
                 deps = [line.split('==')[0].strip() for line in f if line.strip() and not line.startswith('#')]
                 self.metadata["dependencies"]["Python"].update(deps)
+                for d in deps:
+                    if d in ['pytest', 'unittest', 'nose', 'mock']: self.metadata["tests"].append(d)
         except: pass
 
     def _analyze_code(self, filepath, ext):
@@ -207,11 +214,9 @@ class DeepScanner:
                     if 'if __name__ == "__main__":' in content or 'app.run(' in content:
                         self.metadata["entry_point"] = fname
                     
-                    # Capture Classes for Diagram
                     classes = re.findall(r'class\s+(\w+)', content)
                     for c in classes: self.metadata["modules"].append(c)
 
-                    # Imports
                     imports = re.findall(r'^(?:from|import)\s+([\w-]+)', content, re.MULTILINE)
                     for imp in imports: 
                         if imp not in STD_LIBS['python']: 
@@ -234,7 +239,7 @@ class DeepScanner:
                     
                     imports = re.findall(r'"([\w/]+)"', content)
                     for imp in imports:
-                        if '.' in imp and '/' in imp: # Heuristic for external lib in Go
+                        if '.' in imp and '/' in imp:
                             self.metadata["dependencies"]["Go"].add(imp)
 
                 # --- JAVA ---
@@ -246,7 +251,7 @@ class DeepScanner:
                     if "public static void main" in content:
                         self.metadata["entry_point"] = fname
                         if class_match:
-                            self.metadata["entry_point_cmd"] = class_match.group(1) # Class Name
+                            self.metadata["entry_point_cmd"] = class_match.group(1)
                     
                     imports = re.findall(r'import\s+([\w\.]+);', content)
                     for imp in imports:
@@ -260,6 +265,7 @@ class DeepScanner:
         except: pass
 
     def generate_diagrams(self):
+        # 1. Component Architecture (Graph)
         chart = "```mermaid\ngraph TD\n"
         
         # Scenario A: Java/Python Class Diagram
@@ -285,7 +291,30 @@ class DeepScanner:
                     chart += f"    {backend} --> {dep}(({dep} Cache))\n"
 
         chart += "```\n\n"
-        return "**Architecture**\n" + chart
+        
+        # 2. Application Flow (Sequence)
+        flow = "```mermaid\nsequenceDiagram\n    participant User\n    participant System\n"
+        
+        # Detect DB usage for Sequence Diagram
+        has_db = any("Database" in t for t in self.metadata["tech_stack"])
+        # Fallback check on dependencies
+        if not has_db:
+             for lang, deps in self.metadata["dependencies"].items():
+                 if any(d in ['mongoose', 'mongodb', 'sqlalchemy', 'pymongo', 'mysql', 'pg'] for d in deps):
+                     has_db = True
+                     break
+
+        if has_db: flow += "    participant DB as Database\n"
+        
+        flow += "    User->>System: Request\n"
+        flow += "    System->>System: Process Logic\n"
+        
+        if has_db:
+            flow += "    System->>DB: Query Data\n    DB-->>System: Return Data\n"
+        
+        flow += "    System-->>User: Response\n```"
+        
+        return "### Component Architecture\n" + chart + "### Application Flow\n" + flow
 
     def build_markdown(self, template="Detailed"):
         m = self.metadata
@@ -316,24 +345,44 @@ class DeepScanner:
         md += f"## 📝 Description\n{m['description']}\n\n"
         if self.custom_context: md += f"> **Developer Note:** {self.custom_context}\n\n"
         
-        md += "![Screenshot](https://via.placeholder.com/800x400?text=Project+Screenshot)\n\n"
+        md += "## 📸 Screenshot\n![App Screenshot](https://via.placeholder.com/800x400?text=Application+Screenshot)\n\n"
 
         md += "## 📑 Table of Contents\n- [Architecture](#-architecture)\n- [Project Structure](#-project-structure)\n- [Installation](#-installation)\n- [Usage](#-usage)\n"
-        if m["dependencies"]["Java"] or m["dependencies"]["Python"] or m["dependencies"]["Node.js"]: md += "- [Dependencies](#-dependencies)\n"
-        md += "- [License](#-license)\n\n"
+        if m["scripts"]: md += "- [Scripts](#-scripts)\n"
+        if any(m["dependencies"].values()): md += "- [Dependencies](#-dependencies)\n"
+        if m["tests"]: md += "- [Testing](#-testing)\n"
+        md += "- [Contributing](#-contributing)\n- [License](#-license)\n\n"
 
         md += "## 🏗 Architecture\n" + self.generate_diagrams() + "\n\n"
         md += "## 📂 Project Structure\n" + m["structure"] + "\n\n"
         md += "## ⚙️ Installation\n" + self._generate_strict_install(langs)
         md += "## 🚀 Usage\n" + self._generate_strict_usage(langs)
 
-        # Dependencies
-        for l in langs:
-            if m["dependencies"].get(l):
-                md += f"## 📦 Dependencies ({l})\n"
-                for d in list(m["dependencies"][l])[:10]:
-                    md += f"- `{d}`\n"
-                md += "\n"
+        # Scripts Section
+        if m["scripts"]:
+            md += "## 📜 Scripts\n| Command | Description |\n|---|---|\n"
+            for k,v in m["scripts"].items():
+                md += f"| `npm run {k}` | {v} |\n"
+            md += "\n"
+        
+        # Testing Section
+        if m["tests"]:
+            md += "## 🧪 Testing\nTo run the tests, execute:\n```bash\n"
+            if "jest" in m["tests"]: md += "npm test\n"
+            elif "pytest" in m["tests"]: md += "pytest\n"
+            else: md += "# Run test command\n"
+            md += "```\n\n"
+
+        # Dependencies Section
+        has_deps = any(m["dependencies"].values())
+        if has_deps:
+            md += "## 📦 Dependencies\n"
+            for l in langs:
+                if m["dependencies"].get(l):
+                    md += f"**{l}**\n"
+                    for d in list(m["dependencies"][l])[:12]:
+                        md += f"- `{d}`\n"
+                    md += "\n"
 
         md += "## 🤝 Contributing\n1. Fork the Project\n2. Create your Feature Branch\n3. Commit your Changes\n4. Push to the Branch\n5. Open a Pull Request\n\n"
         md += f"## 📄 License\nThis project is licensed under the **{m['license']}**."
@@ -416,3 +465,4 @@ def generate_readme(path, template, context):
         return scanner.build_markdown(template)
     finally:
         scanner.cleanup()
+        # vaibele
