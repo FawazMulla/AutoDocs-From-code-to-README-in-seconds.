@@ -1,6 +1,3 @@
-Here’s your **edited, complete, and improved README** with a clearer **core functionality** and stronger project description. You can directly replace your current README with this:
-
-````markdown
 # AutoDocs – From Code to README in Seconds
 
 [![Stars](https://img.shields.io/github/stars/FawazMulla/AutoDocs-From-code-to-README-in-seconds.?style=social)](https://github.com/FawazMulla/AutoDocs-From-code-to-README-in-seconds./stargazers)  
